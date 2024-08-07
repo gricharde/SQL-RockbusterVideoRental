@@ -1,0 +1,73 @@
+-- SQL Rewritten as CTEs to find average paid from top 5 customers
+
+WITH average_amount_cte (customer_id, first_name, last_name, country, city) AS 
+(SELECT 
+B.customer_id,
+B.first_name,
+B.last_name,
+E.country,
+D.city,
+SUM (A.amount) as total_amount_paid from payment A join customer B ON A.customer_id = B.customer_id
+join address C on B.address_id = C.address_id
+join city D on C.city_id = D.city_id
+join country E on D.country_id = E.country_id
+where D.city in ( Select D.city from customer B
+join address C on B.address_id = C.address_id join city D on C.city_id = D.city_id
+join country E on D.country_id = E.country_id where E.country in (Select E.country from customer B
+join address C on B.address_id = C.address_id
+join city D on C.city_id = D.city_id join country E on D.country_id = E.country_id
+group by E.country order by count(B.customer_id) desc limit 10)
+group by E.country, D.city
+order by
+count(B.customer_id) desc
+limit 10
+)
+group by 
+B.customer_id,
+B.first_name,
+B.last_name,
+E.country,
+D.city
+order by 
+sum(A.amount) desc
+limit
+5
+)
+select avg(total_amount_paid)
+from average_amount_cte
+
+-- SQL CTE to find out how many of the top 5 customers above are based in each country
+
+with top_5_count_cte (customer_id, first_name, last_name, country, city) as
+(select B.customer_id, B.first_name, B.last_name, E.country, D.city,
+sum(A.amount) as total_amount_paid from payment A
+join customer B on A.customer_id = B.customer_id
+join address C on B.address_id = C.address_id
+join city D on C.city_id = D.city_id
+join country E on D.country_id = E.country_id
+where D.city in (select D.city from customer B
+join address C on B.address_id = C.address_id
+join city D on C.city_id = D.city_id
+join country E on D.country_id = E.country_id
+where E.country in (
+select E.country from customer B join address C on B.address_id = C.address_id
+join city D on C.city_id = D.city_id
+join country E on D.country_id = E.country_id
+group by E.country
+order by count(B.customer_id) desc limit 10)
+group by E.country, D.city order by count(B.customer_id) desc limit 10)
+group by B.customer_id, B.first_name, B.last_name, E.country, D.city order by
+sum(A.amount) desc limit 5)
+select
+E.country,
+count(distinct B.customer_id) as all_customer_count,
+count (distinct top_5_count_cte) as top_customer_count
+from customer B
+join address C on B.address_id = C.address_id
+join city D on C.city_id = D.city_id
+join country E on D.country_id = E.country_id
+left join top_5_count_cte on B.customer_id = top_5_count_cte.customer_id
+group by
+E.country
+order by 
+all_customer_count desc 
